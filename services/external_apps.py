@@ -288,18 +288,6 @@ def _find_go() -> str | None:
     return None
 
 
-def _conda_exe() -> str | None:
-    candidates = [
-        shutil.which("conda"),
-        r"D:\miniconda\conda3\Scripts\conda.exe",
-        r"D:\miniconda\conda3\Library\bin\conda.bat",
-    ]
-    for item in candidates:
-        if item and Path(item).exists():
-            return item
-    return None
-
-
 def _uv_exe() -> str | None:
     candidate = shutil.which("uv")
     if candidate and Path(candidate).exists():
@@ -370,45 +358,6 @@ def _ensure_kiro_extracted_exe() -> str | None:
     if _KIRO_MANAGER_EXTRACT_EXE.exists():
         return str(_KIRO_MANAGER_EXTRACT_EXE)
     return None
-
-
-def _ensure_grok2api_conda_env(repo: Path) -> str:
-    env_name = "grok2api-313"
-    conda = _conda_exe()
-    if not conda:
-        raise RuntimeError("未找到 conda，无法为 grok2api 自动创建 Python 3.13 环境")
-
-    check = subprocess.run(
-        [conda, "run", "--no-capture-output", "-n", env_name, "python", "--version"],
-        cwd=str(repo),
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        creationflags=_creationflags(),
-    )
-    if check.returncode != 0:
-        subprocess.run(
-            [conda, "create", "-y", "-n", env_name, "python=3.13"],
-            cwd=str(repo),
-            check=True,
-            creationflags=_creationflags(),
-        )
-
-    marker = repo / ".grok2api-env-ready"
-    if not marker.exists():
-        subprocess.run(
-            [conda, "run", "--no-capture-output", "-n", env_name, "python", "-m", "pip", "install", "--upgrade", "pip"],
-            cwd=str(repo),
-            check=True,
-            creationflags=_creationflags(),
-        )
-        subprocess.run(
-            [conda, "run", "--no-capture-output", "-n", env_name, "python", "-m", "pip", "install", "."],
-            cwd=str(repo),
-            check=True,
-            creationflags=_creationflags(),
-        )
-        marker.write_text(env_name, encoding="utf-8")
-    return env_name
 
 
 def _ensure_grok2api_uv_env(repo: Path) -> str:
@@ -520,29 +469,6 @@ def _build_command(name: str) -> tuple[list[str], Path]:
 
     if name == "grok2api":
         _ensure_grok2api_runtime_config(repo)
-        conda = _conda_exe()
-        if conda:
-            env_name = _ensure_grok2api_conda_env(repo)
-            return [
-                conda,
-                "run",
-                "--no-capture-output",
-                "-n",
-                env_name,
-                "python",
-                "-m",
-                "granian",
-                "--interface",
-                "asgi",
-                "--host",
-                "127.0.0.1",
-                "--port",
-                "8011",
-                "--workers",
-                "1",
-                "main:app",
-            ], repo
-
         python_exe = _ensure_grok2api_uv_env(repo)
         return [
             python_exe,

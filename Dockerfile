@@ -18,10 +18,9 @@ ARG CAMOUFOX_RELEASE=beta.24
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
     HOST=0.0.0.0 \
     PORT=8000 \
-    APP_CONDA_ENV=docker \
+    APP_RUNTIME_CONTEXT=docker \
     APP_RELOAD=0 \
     APP_RUNTIME_DIR=/runtime \
     APP_ENABLE_SOLVER=1 \
@@ -32,7 +31,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY requirements.txt ./
+COPY pyproject.toml uv.lock README.md ./
 COPY scripts/install_camoufox.py /tmp/install_camoufox.py
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -42,13 +41,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && curl -LsSf https://astral.sh/uv/install.sh | sh \
     && rm -rf /var/lib/apt/lists/*
 
-ENV PATH="/usr/local/go/bin:/root/.local/bin:${PATH}"
+ENV PATH="/app/.venv/bin:/usr/local/go/bin:/root/.local/bin:${PATH}"
 
-RUN pip install --upgrade pip \
-    && pip install -r requirements.txt \
+RUN uv sync --frozen --no-dev \
     && installed=0 \
     && for attempt in 1 2 3; do \
-         if python -m playwright install --with-deps chromium firefox; then \
+         if uv run python -m playwright install --with-deps chromium firefox; then \
            installed=1; \
            break; \
          fi; \
@@ -57,7 +55,7 @@ RUN pip install --upgrade pip \
          sleep 5; \
        done \
     && [ "$installed" -eq 1 ] \
-    && CAMOUFOX_VERSION="$CAMOUFOX_VERSION" CAMOUFOX_RELEASE="$CAMOUFOX_RELEASE" python /tmp/install_camoufox.py
+    && CAMOUFOX_VERSION="$CAMOUFOX_VERSION" CAMOUFOX_RELEASE="$CAMOUFOX_RELEASE" uv run python /tmp/install_camoufox.py
 
 COPY . .
 COPY --from=frontend-builder /app/static /app/static

@@ -92,10 +92,11 @@
 
 ## 环境要求
 
-- Python 3.12+
+- Python 3.12.x（仓库默认锁定 `3.12.10`）
 - Node.js 18+
-- Conda（推荐）
-- Windows（推荐直接使用仓库内启动脚本）
+- `pyenv` / `pyenv-win`
+- `uv`
+- Windows（推荐直接使用仓库内启动脚本，脚本默认走 `pyenv + uv`）
 
 ## ChatGPT 专项能力
 
@@ -162,24 +163,24 @@ Kiro 当前风控较严格，邮箱方案会显著影响成功率。当前项目
 
 ## 快速开始
 
-### 1. 创建并激活 Conda 环境
+### 1. 安装并切换 Python 版本
 
 ```bash
-conda create -n any-auto-register python=3.12 -y
-conda activate any-auto-register
+pyenv install 3.12.10
+pyenv local 3.12.10
 ```
 
 ### 2. 安装后端依赖
 
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
 
 ### 3. 安装浏览器相关依赖
 
 ```bash
-python -m playwright install chromium
-python -m camoufox fetch
+uv run python -m playwright install chromium
+uv run python -m camoufox fetch
 ```
 
 ### 4. 安装并构建前端
@@ -216,8 +217,7 @@ start_backend.bat
 #### 手动启动
 
 ```bash
-conda activate any-auto-register
-python main.py
+uv run python main.py
 ```
 
 启动后默认访问：
@@ -237,7 +237,7 @@ http://localhost:8000
 - `stop_backend.bat`
 - `stop_backend.ps1`
 
-这些脚本会强制使用 `any-auto-register` 环境启动/停止后端，可避免以下常见问题：
+这些脚本会优先读取仓库根目录 `.python-version`，并通过 `pyenv + uv` 启动/停止后端，可避免以下常见问题：
 
 - 后端能启动，但 Solver 没有拉起
 - `ModuleNotFoundError: quart`
@@ -300,13 +300,12 @@ http://localhost:8889
 前端“全局配置 → 验证码 → Turnstile Solver”显示的是**后端检测结果**，因此：
 
 - 后端未启动 → 前端显示“未运行”
-- 后端已启动但不在正确 conda 环境 → Solver 可能启动失败
+- 后端已启动但不在项目 `.venv` 环境 → Solver 可能启动失败
 
 ### 手动启动 Solver
 
 ```bash
-conda activate any-auto-register
-python services/turnstile_solver/start.py --browser_type camoufox --port 8889
+uv run python services/turnstile_solver/start.py --browser_type camoufox --port 8889
 ```
 
 ### Solver 日志
@@ -398,7 +397,7 @@ CAMOUFOX_VERSION=135.0.1 CAMOUFOX_RELEASE=beta.24 docker compose build app
 
 - 当前 Docker 镜像主要覆盖主应用和本地 Turnstile Solver
 - `grok2api`、`CLIProxyAPI`、`Kiro Account Manager` 的自动安装/拉起逻辑仍偏向宿主机环境
-- 若依赖 `conda`、Go 或 Windows 可执行文件，不建议直接在当前 Linux 容器中启动这些插件
+- 若依赖独立 Go 运行时或 Windows 可执行文件，不建议直接在当前 Linux 容器中启动这些插件
 - 如果你只需要 Web UI、账号管理、任务调度和本地 Solver，当前 Compose 配置可直接使用
 
 ## 插件与外部依赖
@@ -445,7 +444,7 @@ curl http://localhost:8000/api/solver/status
 
 ### 2. 出现 `ModuleNotFoundError: quart`
 
-说明当前启动后端的 Python 不是 `any-auto-register` 环境，请改用：
+说明当前启动后端的 Python 不是项目 `.venv` 环境，请改用：
 
 ```powershell
 .\start_backend.ps1
@@ -460,13 +459,13 @@ start_backend.bat
 ### 3. 如何确认当前 Python 是否正确
 
 ```bash
-python -c "import sys; print(sys.executable)"
+uv run python -c "import sys; print(sys.executable)"
 ```
 
 输出应类似：
 
 ```text
-D:\miniconda\conda3\envs\any-auto-register\python.exe
+D:\work\python\any-auto-register\.venv\Scripts\python.exe
 ```
 
 ### 4. Solver 能打开，但状态仍然异常
@@ -498,6 +497,7 @@ http://localhost:8889/
 
 ```text
 any-auto-register/
+├── .python-version
 ├── api/
 ├── core/
 ├── docs/
@@ -510,7 +510,9 @@ any-auto-register/
 ├── static/
 ├── tests/
 ├── main.py
+├── pyproject.toml
 ├── requirements.txt
+├── uv.lock
 ├── docker-compose.yml
 ├── Dockerfile
 ├── start_backend.bat

@@ -14,7 +14,7 @@ if "%FULL_STOP%"=="" set "FULL_STOP=1"
 
 echo [INFO] 准备停止后端相关服务
 if "%FULL_STOP%"=="1" (
-  powershell -ExecutionPolicy Bypass -File "%~dp0stop_backend.ps1" -BackendPort %BACKEND_PORT% -SolverPort %SOLVER_PORT% -Grok2ApiPort %GROK2API_PORT% -CLIProxyAPIPort %CLIPROXYAPI_PORT% -FullStop 1
+  pwsh -NoLogo -File "%~dp0stop_backend.ps1" -BackendPort %BACKEND_PORT% -SolverPort %SOLVER_PORT% -Grok2ApiPort %GROK2API_PORT% -CLIProxyAPIPort %CLIPROXYAPI_PORT% -FullStop 1
 ) else (
-  powershell -ExecutionPolicy Bypass -File "%~dp0stop_backend.ps1" -BackendPort %BACKEND_PORT% -SolverPort %SOLVER_PORT% -FullStop 0
+  pwsh -NoLogo -File "%~dp0stop_backend.ps1" -BackendPort %BACKEND_PORT% -SolverPort %SOLVER_PORT% -FullStop 0
 )
