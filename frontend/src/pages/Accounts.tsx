@@ -368,6 +368,7 @@ function ActionMenu({ acc, onRefresh, actions }: { acc: any; onRefresh: () => vo
   const [resultUrl, setResultUrl] = useState('')
   const [resultProbe, setResultProbe] = useState<any>(null)
   const [resultCliproxySync, setResultCliproxySync] = useState<any>(null)
+  const [runningActionId, setRunningActionId] = useState<string | null>(null)
 
   const showResult = (title: string, status: 'success' | 'error', text: string, url = '', probe: any = null, cliproxySync: any = null) => {
     setResultTitle(title)
@@ -390,7 +391,11 @@ function ActionMenu({ acc, onRefresh, actions }: { acc: any; onRefresh: () => vo
   }
 
   const handleAction = async (actionId: string) => {
+    if (runningActionId) return
     const actionLabel = actions.find((item) => item.id === actionId)?.label || actionId
+    const toastKey = `account-action:${acc?.id}:${actionId}`
+    setRunningActionId(actionId)
+    message.loading({ content: `${actionLabel}运行中...`, key: toastKey, duration: 0 })
 
     try {
       const r = await apiFetch(`/actions/${acc.platform}/${acc.id}/${actionId}`, {
@@ -401,6 +406,7 @@ function ActionMenu({ acc, onRefresh, actions }: { acc: any; onRefresh: () => vo
         const data = r.data || {}
         const probe = typeof data === 'object' && data ? data.probe || null : null
         const cliproxySync = typeof data === 'object' && data ? data.sync || null : null
+        message.error({ content: `${actionLabel}失败`, key: toastKey })
         showResult(actionLabel, 'error', r.error || data.message || '操作失败', '', probe, cliproxySync)
         onRefresh()
         return
@@ -408,10 +414,10 @@ function ActionMenu({ acc, onRefresh, actions }: { acc: any; onRefresh: () => vo
       const data = r.data || {}
       if (data.url || data.checkout_url || data.cashier_url) {
         const targetUrl = data.url || data.checkout_url || data.cashier_url
-        message.success('链接已生成')
+        message.success({ content: `${actionLabel}完成`, key: toastKey })
         showResult(actionLabel, 'success', '操作成功，请在弹窗中打开或复制链接。', targetUrl)
       } else {
-        message.success(data.message || '操作成功')
+        message.success({ content: data.message || `${actionLabel}完成`, key: toastKey })
         const probe = typeof data === 'object' && data ? data.probe || null : null
         const cliproxySync = typeof data === 'object' && data ? data.sync || null : null
         const text =
@@ -429,14 +435,17 @@ function ActionMenu({ acc, onRefresh, actions }: { acc: any; onRefresh: () => vo
       onRefresh()
     } catch (e: any) {
       const detail = e?.message ? String(e.message) : '请求失败'
-      message.error(detail)
+      message.error({ content: detail, key: toastKey })
       showResult(actionLabel, 'error', detail)
+    } finally {
+      setRunningActionId(null)
     }
   }
 
   const menuItems: MenuProps['items'] = actions.map((a) => ({
     key: a.id,
-    label: a.label,
+    label: runningActionId === a.id ? `${a.label}（运行中）` : a.label,
+    disabled: Boolean(runningActionId),
   }))
 
   if (actions.length === 0) return null
@@ -449,7 +458,12 @@ function ActionMenu({ acc, onRefresh, actions }: { acc: any; onRefresh: () => vo
           onClick: ({ key }) => handleAction(String(key)),
         }}
       >
-        <Button type="link" size="small" icon={<MoreOutlined />} />
+        <Button
+          type="link"
+          size="small"
+          icon={<MoreOutlined />}
+          loading={Boolean(runningActionId)}
+        />
       </Dropdown>
       <Modal
         title={resultTitle}
@@ -520,10 +534,12 @@ function ActionMenu({ acc, onRefresh, actions }: { acc: any; onRefresh: () => vo
 export default function Accounts() {
   const { platform } = useParams<{ platform: string }>()
   const { token } = theme.useToken()
-  const [currentPlatform, setCurrentPlatform] = useState(platform || 'trae')
+  const [currentPlatform, setCurrentPlatform] = useState(platform || 'chatgpt')
   const [accounts, setAccounts] = useState<any[]>([])
   const [platformActions, setPlatformActions] = useState<any[]>([])
   const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
@@ -547,6 +563,7 @@ export default function Accounts() {
   const [taskId, setTaskId] = useState<string | null>(null)
   const [registerLoading, setRegisterLoading] = useState(false)
   const [cpaSyncLoading, setCpaSyncLoading] = useState<'pending' | 'selected' | ''>('')
+  const [cpaUploadLoading, setCpaUploadLoading] = useState<'all' | 'selected' | ''>('')
   const [statusSyncLoading, setStatusSyncLoading] = useState<'probe_selected' | 'probe_all' | 'remote_selected' | 'remote_all' | ''>('')
 
   useEffect(() => {
@@ -571,7 +588,7 @@ export default function Accounts() {
 
     setLoading(true)
     try {
-      const params = new URLSearchParams({ platform: currentPlatform, page: '1', page_size: '100' })
+      const params = new URLSearchParams({ platform: currentPlatform, page: String(page), page_size: String(pageSize) })
       if (search) params.set('email', search)
       if (filterStatus) params.set('status', filterStatus)
       if (createdAtStart) params.set('created_at_start', createdAtStart)
@@ -582,7 +599,7 @@ export default function Accounts() {
     } finally {
       setLoading(false)
     }
-  }, [currentPlatform, search, filterStatus, createdAtStart, createdAtEnd])
+  }, [currentPlatform, search, filterStatus, createdAtStart, createdAtEnd, page, pageSize])
 
   useEffect(() => {
     load()
@@ -1007,9 +1024,62 @@ export default function Accounts() {
     }
   }
 
+  const handleBatchUploadCpa = async (scope: 'selected' | 'all') => {
+    const toastKey = `batch-upload-cpa:${scope}`
+    const scopeLabel = scope === 'selected' ? '所选账号' : '当前筛选账号'
+
+    const body: Record<string, unknown> = {
+      params: {},
+    }
+
+    if (scope === 'selected') {
+      const accountIds = Array.from(selectedRowKeys)
+        .map((value) => Number(value))
+        .filter((value) => Number.isInteger(value) && value > 0)
+
+      if (accountIds.length === 0) {
+        message.warning('请先选择要导入 CPA 的账号')
+        return
+      }
+      body.account_ids = accountIds
+    } else {
+      body.all_filtered = true
+      if (search) body.email = search
+      if (filterStatus) body.status = filterStatus
+    }
+
+    setCpaUploadLoading(scope)
+    message.loading({ content: `${scopeLabel}导入 CPA 进行中...`, key: toastKey, duration: 0 })
+    try {
+      const result = await apiFetch(`/actions/${currentPlatform}/upload_cpa/batch`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+
+      if (!result.total) {
+        message.info({ content: '没有可处理的账号', key: toastKey })
+      } else if (!result.failed) {
+        message.success({ content: `${scopeLabel}导入 CPA 完成：成功 ${result.success} / ${result.total}`, key: toastKey })
+      } else if (!result.success) {
+        message.error({ content: `${scopeLabel}导入 CPA 失败：成功 ${result.success} / ${result.total}`, key: toastKey })
+      } else {
+        message.warning({ content: `${scopeLabel}导入 CPA 部分完成：成功 ${result.success} / ${result.total}`, key: toastKey })
+      }
+
+      showBatchActionResult(`${scopeLabel}导入 CPA 结果`, result)
+      await load()
+    } catch (e: any) {
+      message.error({ content: `导入 CPA 失败: ${e.message}`, key: toastKey })
+    } finally {
+      setCpaUploadLoading('')
+    }
+  }
+
   const getStatusSyncScope = (): 'selected' | 'all' => (selectedRowKeys.length > 0 ? 'selected' : 'all')
 
   const getBackfillScope = (): 'selected' | 'pending' => (selectedRowKeys.length > 0 ? 'selected' : 'pending')
+
+  const getUploadCpaScope = (): 'selected' | 'all' => (selectedRowKeys.length > 0 ? 'selected' : 'all')
 
   const backfillButtonLabel = () => {
     const scope = getBackfillScope()
@@ -1017,7 +1087,14 @@ export default function Accounts() {
     return scope === 'selected' ? `补传所选远端未发现 (${count})` : `补传远端未发现 (${count})`
   }
 
+  const uploadCpaButtonLabel = () => {
+    const scope = getUploadCpaScope()
+    const count = scope === 'selected' ? selectedRowKeys.length : total
+    return scope === 'selected' ? `导入所选 CPA (${count})` : `导入筛选 CPA (${count})`
+  }
+
   const isChatgptPlatform = currentPlatform === 'chatgpt'
+  const hasUploadCpaAction = platformActions.some((item) => item?.id === 'upload_cpa')
   const monospaceStyle: React.CSSProperties = {
     fontFamily: 'SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
     fontSize: 12,
@@ -1165,6 +1242,22 @@ export default function Accounts() {
       },
     )
   } else {
+    if (hasUploadCpaAction) {
+      columns.push({
+        title: 'CPA',
+        key: 'cpa_sync',
+        width: 120,
+        render: (_: any, record: any) => {
+          const cpaMeta = uploadSyncMeta(record.cpaSync || {})
+          return (
+            <Tag color={cpaMeta.color} title={uploadSyncTitle('CPA', record.cpaSync || {})}>
+              {cpaMeta.label}
+            </Tag>
+          )
+        },
+      })
+    }
+
     columns.push(
       {
         title: '地区',
@@ -1217,7 +1310,13 @@ export default function Accounts() {
           <Button type="link" size="small" onClick={() => { setCurrentAccount(record); setDetailModalOpen(true); }}>
             详情
           </Button>
-          <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.id)}>
+          <Popconfirm
+            title="确认删除该账号吗？"
+            onConfirm={() => handleDelete(record.id)}
+            okText="删除"
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
+          >
             <Button type="link" size="small" danger>
               删除
             </Button>
@@ -1254,14 +1353,14 @@ export default function Accounts() {
           <Input.Search
             placeholder="搜索邮箱..."
             allowClear
-            onSearch={setSearch}
+            onSearch={(v) => { setPage(1); setSearch(v) }}
             style={{ width: 200 }}
           />
           <Select
             placeholder="状态筛选"
             allowClear
             style={{ width: 120 }}
-            onChange={setFilterStatus}
+            onChange={(v) => { setPage(1); setFilterStatus(v) }}
             options={[
               { value: 'registered', label: '已注册' },
               { value: 'trial', label: '试用中' },
@@ -1274,13 +1373,13 @@ export default function Accounts() {
             showTime
             allowClear
             placeholder="开始时间"
-            onChange={(value) => setCreatedAtStart(value ? value.toISOString() : '')}
+            onChange={(value) => { setPage(1); setCreatedAtStart(value ? value.toISOString() : '') }}
           />
           <DatePicker
             showTime
             allowClear
             placeholder="结束时间"
-            onChange={(value) => setCreatedAtEnd(value ? value.toISOString() : '')}
+            onChange={(value) => { setPage(1); setCreatedAtEnd(value ? value.toISOString() : '') }}
           />
           <Text type="secondary">{total} 个账号</Text>
           {selectedRowKeys.length > 0 && (
@@ -1316,6 +1415,8 @@ export default function Accounts() {
                   : '确认补传当前筛选范围内远端未发现且本地状态有效的账号？'
               }
               onConfirm={() => handleCpaBackfill(getBackfillScope())}
+              okText="确认"
+              cancelText="取消"
             >
               <Button
                 loading={cpaSyncLoading === 'pending' || cpaSyncLoading === 'selected'}
@@ -1326,8 +1427,34 @@ export default function Accounts() {
               </Button>
             </Popconfirm>
           )}
+          {currentPlatform !== 'chatgpt' && hasUploadCpaAction && (
+            <Popconfirm
+              title={
+                getUploadCpaScope() === 'selected'
+                  ? `确认导入所选 ${selectedRowKeys.length} 个账号到 CPA？`
+                  : `确认导入当前筛选范围内 ${total} 个账号到 CPA？`
+              }
+              onConfirm={() => handleBatchUploadCpa(getUploadCpaScope())}
+              okText="确认"
+              cancelText="取消"
+            >
+              <Button
+                loading={cpaUploadLoading === 'selected' || cpaUploadLoading === 'all'}
+                icon={<UploadOutlined />}
+                disabled={getUploadCpaScope() === 'selected' ? selectedRowKeys.length === 0 : total === 0}
+              >
+                {uploadCpaButtonLabel()}
+              </Button>
+            </Popconfirm>
+          )}
           {selectedRowKeys.length > 0 && (
-            <Popconfirm title={`确认删除选中的 ${selectedRowKeys.length} 个账号？`} onConfirm={handleBatchDelete}>
+            <Popconfirm
+              title={`确认删除选中的 ${selectedRowKeys.length} 个账号？`}
+              onConfirm={handleBatchDelete}
+              okText="删除"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+            >
               <Button danger icon={<DeleteOutlined />}>删除 {selectedRowKeys.length} 个</Button>
             </Popconfirm>
           )}
@@ -1349,7 +1476,7 @@ export default function Accounts() {
           selectedRowKeys,
           onChange: setSelectedRowKeys,
         }}
-        pagination={{ pageSize: 20, showSizeChanger: false }}
+        pagination={{ total, current: page, pageSize, showSizeChanger: true, pageSizeOptions: ['20', '50', '100'], onChange: (p, ps) => { setPage(p); setPageSize(ps) } }}
         scroll={{ x: isChatgptPlatform ? 1440 : 980 }}
         onRow={(record) => ({
           onDoubleClick: () => {
@@ -1373,7 +1500,7 @@ export default function Accounts() {
               <Input type="number" min={1} />
             </Form.Item>
             <Form.Item name="concurrency" label="并发数" initialValue={1} rules={[{ required: true }]}>
-              <Input type="number" min={1} max={5} />
+              <Input type="number" min={1} />
             </Form.Item>
             <Form.Item name="register_delay_seconds" label="每个注册延迟(秒)" initialValue={0}>
               <InputNumber min={0} precision={1} step={0.5} style={{ width: '100%' }} placeholder="0 = 不延迟" />
@@ -1402,6 +1529,8 @@ export default function Accounts() {
         open={addModalOpen}
         onCancel={() => { setAddModalOpen(false); addForm.resetFields(); }}
         onOk={handleAdd}
+        okText="确定"
+        cancelText="取消"
         maskClosable={false}
       >
         <Form form={addForm} layout="vertical">
@@ -1434,6 +1563,8 @@ export default function Accounts() {
         open={importModalOpen}
         onCancel={() => { setImportModalOpen(false); setImportText(''); }}
         onOk={handleImport}
+        okText="确定"
+        cancelText="取消"
         confirmLoading={importLoading}
         maskClosable={false}
       >
@@ -1453,6 +1584,8 @@ export default function Accounts() {
         open={detailModalOpen}
         onCancel={() => setDetailModalOpen(false)}
         onOk={handleDetailSave}
+        okText="保存"
+        cancelText="取消"
         maskClosable={false}
         width={760}
         styles={{ body: { maxHeight: '72vh', overflowY: 'auto' } }}

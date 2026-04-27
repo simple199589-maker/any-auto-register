@@ -42,7 +42,7 @@ export default function RegisterTaskPage() {
 
   useEffect(() => {
     apiFetch('/config').then((cfg) => {
-      const currentPlatform = form.getFieldValue('platform') || 'trae'
+      const currentPlatform = form.getFieldValue('platform') || 'chatgpt'
       const configMailProvider = String(cfg.mail_provider || 'luckmail')
       const isMailImportProvider = configMailProvider === 'microsoft' || configMailProvider === 'outlook' || configMailProvider === 'applemail'
       form.setFieldsValue({
@@ -239,7 +239,7 @@ export default function RegisterTaskPage() {
       </div>
 
       <Form form={form} layout="vertical" onFinish={submit} initialValues={{
-        platform: 'trae',
+        platform: 'chatgpt',
         executor_type: 'protocol',
         captcha_solver: 'yescaptcha',
         mail_provider: 'luckmail',
@@ -262,7 +262,6 @@ export default function RegisterTaskPage() {
             <Select
               options={[
                 { value: 'chatgpt', label: 'ChatGPT' },
-                { value: 'trae', label: 'Trae.ai' },
                 { value: 'cursor', label: 'Cursor' },
                 { value: 'kiro', label: 'Kiro' },
                 { value: 'grok', label: 'Grok' },
@@ -288,7 +287,7 @@ export default function RegisterTaskPage() {
               <Input type="number" min={1} />
             </Form.Item>
             <Form.Item name="concurrency" label="并发数" style={{ flex: 1 }}>
-              <Input type="number" min={1} max={5} />
+              <Input type="number" min={1} />
             </Form.Item>
           </Space>
           <Space style={{ width: '100%' }}>
