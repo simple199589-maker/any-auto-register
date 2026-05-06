@@ -21,6 +21,7 @@
 - [项目简介](#项目简介)
 - [当前界面与实际平台展示](#当前界面与实际平台展示)
 - [功能特性](#功能特性)
+- [自营产品](#自营产品)
 - [赞助商目录](#赞助商目录)
 - [界面预览](#界面预览)
 - [技术栈](#技术栈)
@@ -66,12 +67,21 @@
 - **任务历史管理**：支持历史记录查看与批量删除
 - **插件化扩展**：可按需接入外部服务和独立管理端
 
+## 自营产品
+
+感谢以下自营产品对 any-auto-register 的支持。
+
+| Logo | 名称 | 介绍 | 官网 |
+| --- | --- | --- | --- |
+| <a href="https://faka.gsyun.cloud/" target="_blank"><img src="frontend/public/logo.png" alt="阿晨小铺" width="140" /></a> | 阿晨小铺 | 本人经营gpt等虚拟产品,诚信稳定，有保障 | [https://faka.gsyun.cloud/](https://faka.gsyun.cloud/) |
+
 ## 赞助商目录
 
 感谢以下朋友与伙伴对 any-auto-register 的支持。
 
 | Logo | 名称 | 介绍 | 官网 |
 | --- | --- | --- | --- |
+| <a href="https://bestproxy.com/?keyword=hv0mj0wa" target="_blank"><img src="frontend/public/bestproxy.jpg" alt="bestproxy" width="140" /></a> | bestproxy | 提供高纯度住宅IP，支持一号一IP独享，结合真实家庭网络与指纹隔离，可实现链路环境隔离，降低关联风控概率，适配批量注册与账号养护场景。<br><br>**折扣：10%**<br>**券码（送500M）：ZCTYUH90** | [https://bestproxy.com/?keyword=hv0mj0wa](https://bestproxy.com/?keyword=hv0mj0wa) |
 | <a href="https://pay.ldxp.cn/shop/plus7" target="_blank"><img src="frontend/public/zhz7.jpg" alt="plus7卡网" width="140" /></a> | plus7卡网 | 提供稳定、低价的 GPT Plus 开通与相关服务，适合有日常使用和持续订阅需求的用户。可前往官网查看最新方案与说明。 | [https://pay.ldxp.cn/shop/plus7](https://pay.ldxp.cn/shop/plus7) |
 | <a href="https://gzxsy.vip" target="_blank"><img src="frontend/public/gzxsylogo.jpg" alt="星思研中转站" width="140" /></a> | 星思研中转站 | 为 Claude Code、Codex 等模型调用场景提供稳定中转与配套服务，适合需要高可用接口、便捷接入和持续交付支持的开发者与团队。可前往官网了解最新方案。 | [https://gzxsy.vip](https://gzxsy.vip) |
 | <a href="https://ai.xiaoye.io/" target="_blank"><img src="frontend/public/xiaoyelogo.jpg" alt="小野API中转站" width="140" /></a> | 小野API中转站 | 为 Claude Code、Codex 等模型调用场景提供稳定中转与配套服务，适合需要高可用接口、便捷接入和持续交付支持的开发者与团队。可前往官网了解最新方案。 | [https://ai.xiaoye.io/](https://ai.xiaoye.io/) |
